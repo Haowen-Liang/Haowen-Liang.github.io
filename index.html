@@ -55,6 +55,31 @@
       box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
     }
 
+    /* Edit Mode Hover Indicator on Cards */
+    body.edit-mode-active .node-card:hover {
+      border-color: #6366f1 !important;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18), 0 4px 12px rgba(15, 23, 42, 0.08) !important;
+    }
+    body.edit-mode-active .node-card::after {
+      content: '✎ Edit';
+      position: absolute;
+      top: 6px;
+      right: 28px;
+      font-size: 9px;
+      font-weight: 700;
+      color: #4f46e5;
+      background: #eef2ff;
+      border: 1px solid #c7d2fe;
+      padding: 1px 5px;
+      border-radius: 4px;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      pointer-events: none;
+    }
+    body.edit-mode-active .node-card:hover::after {
+      opacity: 1;
+    }
+
     /* Active Selected Card */
     .node-card.state-selected {
       background: #eff6ff !important;
@@ -125,12 +150,75 @@
       background: rgba(255, 255, 255, 0.9);
       backdrop-filter: blur(4px);
     }
+
+    /* Left Location Map Sidebar Slide Transition */
+    #left-location-sidebar {
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+    }
+    #left-location-sidebar.sidebar-collapsed {
+      transform: translateX(-100%);
+      box-shadow: none !important;
+    }
+
+    /* Map Pin Pulse & Active States */
+    .map-pin-group {
+      cursor: pointer;
+    }
+    .map-pin-dot {
+      transition: r 0.2s ease, fill 0.2s ease, stroke-width 0.2s ease;
+    }
+    .map-pin-group:hover .map-pin-dot {
+      r: 7px;
+    }
+    .map-pin-group.pin-selected .map-pin-dot {
+      r: 7.5px;
+      stroke: #ffffff;
+      stroke-width: 2.5px;
+      filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.9));
+    }
+    @keyframes pulseRing {
+      0% { transform: scale(0.9); opacity: 0.85; }
+      70% { transform: scale(1.85); opacity: 0; }
+      100% { transform: scale(1.85); opacity: 0; }
+    }
+    .pin-pulse {
+      transform-origin: center;
+      transform-box: fill-box;
+      animation: pulseRing 1.8s infinite;
+    }
+
+    /* Highlighted Activity Detail Card when Map Dot is Clicked */
+    .loc-activity-item {
+      transition: all 0.25s ease;
+      border-left: 3px solid transparent;
+    }
+    .loc-activity-item.activity-highlighted {
+      background: linear-gradient(90deg, #fffbeb 0%, #fef3c7 100%) !important;
+      border-color: #f59e0b !important;
+      border-left: 4px solid #d97706 !important;
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.18);
+      transform: translateX(2px);
+    }
+    .loc-activity-item.activity-highlighted .act-title-text {
+      color: #92400e !important;
+      font-weight: 700 !important;
+      text-decoration: underline;
+      text-decoration-color: #f59e0b;
+      text-underline-offset: 3px;
+    }
+    .loc-activity-item.activity-highlighted .act-desc-text {
+      color: #78350f !important;
+      font-weight: 600 !important;
+      background-color: rgba(253, 230, 138, 0.45);
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body class="flex flex-col h-screen w-screen overflow-hidden">
 
   <!-- Top Navigation & Control Bar -->
-  <header class="h-14 bg-[#003366] text-white px-5 flex items-center justify-between shrink-0 shadow-md z-30">
+  <header class="h-14 bg-[#003366] text-white px-5 flex items-center justify-between shrink-0 shadow-md z-40">
     <div class="flex items-center space-x-3">
       <div class="w-8 h-8 rounded bg-[#006eb5] flex items-center justify-center font-bold text-xs tracking-wider border border-sky-300/30">
         UNDP
@@ -145,9 +233,9 @@
       </div>
     </div>
 
-    <!-- Legend & Reset Controls -->
-    <div class="flex items-center space-x-5 text-xs">
-      <div class="flex items-center space-x-4 bg-[#00264d] px-3 py-1.5 rounded-md border border-sky-800/60">
+    <!-- Legend, Mode Toggle & Reset Controls -->
+    <div class="flex items-center space-x-3 text-xs">
+      <div class="hidden xl:flex items-center space-x-3.5 bg-[#00264d] px-3 py-1.5 rounded-md border border-sky-800/60">
         <div class="flex items-center space-x-1.5">
           <span class="w-3 h-3 rounded-sm bg-[#eff6ff] border-2 border-[#0284c7] inline-block"></span>
           <span class="text-slate-200 font-medium">Selected Node</span>
@@ -157,14 +245,26 @@
           <span class="text-slate-200 font-medium">Connected Logic Path</span>
         </div>
         <div class="flex items-center space-x-1.5">
-          <span class="w-5 h-0.5 bg-[#0284c7] inline-block"></span>
+          <span class="w-4 h-0.5 bg-[#0284c7] inline-block"></span>
           <span class="text-slate-300">Direct Link</span>
         </div>
         <div class="flex items-center space-x-1.5">
-          <span class="w-5 h-0.5 bg-[#f59e0b] inline-block"></span>
-          <span class="text-slate-300">Upstream/Downstream Chain</span>
+          <span class="w-4 h-0.5 bg-[#f59e0b] inline-block"></span>
+          <span class="text-slate-300">Chain</span>
         </div>
       </div>
+
+      <!-- Display View / Edit Mode Toggle Button -->
+      <button id="mode-toggle-btn" onclick="toggleEditMode()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-100 border border-slate-500 font-medium rounded text-xs transition shadow-sm flex items-center space-x-1.5">
+        <svg id="mode-icon-display" class="w-3.5 h-3.5 text-sky-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+        </svg>
+        <svg id="mode-icon-edit" class="w-3.5 h-3.5 text-amber-300 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+        </svg>
+        <span id="mode-toggle-text">Mode: Display View</span>
+      </button>
 
       <button id="reset-btn" onclick="clearSelection()" class="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white font-medium rounded text-xs transition shadow-sm flex items-center space-x-1">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
@@ -173,13 +273,62 @@
     </div>
   </header>
 
-  <!-- Main Workspace: Left 75% Mind Map Canvas + Right 25% Detail Sidebar -->
+  <!-- Main Workspace: Left 75% Mind Map Canvas + Right 25% Detail Sidebar (+ Left 25% Collapsible Location Map Sidebar) -->
   <div class="flex flex-1 overflow-hidden relative">
+
+    <!-- LEFT 1/4 COLLAPSIBLE LOCATION MAP & ACTIVITY SIDEBAR (Triggered on Level 5 Location Card Click) -->
+    <aside id="left-location-sidebar" class="w-1/4 h-full bg-white border-r border-slate-200 flex flex-col shrink-0 shadow-2xl z-30 absolute left-0 top-0 bottom-0 sidebar-collapsed">
+      <!-- Left Sidebar Header -->
+      <div class="px-4 py-3 bg-slate-900 text-white border-b border-slate-800 flex items-center justify-between shrink-0">
+        <div class="min-w-0 pr-2">
+          <div class="flex items-center space-x-1.5">
+            <span class="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-400/30">
+              Level 5 Geospatial View
+            </span>
+            <span id="left-map-badge" class="text-[10px] text-slate-400 font-mono truncate">Location</span>
+          </div>
+          <h3 id="left-map-title" class="text-sm font-bold text-white truncate mt-1">Activity Location Map</h3>
+        </div>
+        <div class="flex items-center space-x-1 shrink-0">
+          <button onclick="collapseLeftSidebar()" title="Collapse Panel" class="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition flex items-center space-x-1 text-[11px] font-medium border border-slate-700">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>
+            </svg>
+            <span>Collapse</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Interactive SVG Map Container -->
+      <div class="bg-slate-900/95 border-b border-slate-200 relative shrink-0 flex flex-col">
+        <div id="left-map-canvas" class="w-full h-60 flex items-center justify-center relative overflow-hidden p-2">
+          <!-- Populated dynamically with either Lao PDR Provincial Map or World Map -->
+        </div>
+        <!-- Map Legend & Pin Instruction Bar -->
+        <div id="left-map-legend" class="px-3 py-2 bg-slate-800/90 text-[10px] text-slate-300 border-t border-slate-700/80 flex flex-wrap items-center justify-between gap-1.5">
+          <span>Click any pin <span class="inline-block w-2 h-2 rounded-full bg-amber-400 mx-0.5"></span> to highlight specific site activities below</span>
+          <button onclick="clearPinFilter()" id="show-all-pins-btn" class="text-sky-300 hover:text-sky-200 underline hidden">Reset Pin Filter</button>
+        </div>
+      </div>
+
+      <!-- Scrollable Activity Details, Achievements, Financial & Procurement Progress -->
+      <div id="left-location-body" class="p-4 overflow-y-auto flex-1 space-y-3 text-xs bg-slate-50/60">
+        <!-- Populated dynamically -->
+      </div>
+    </aside>
+
+    <!-- Floating Re-open Tab for Left Sidebar (Shown when a Location is active or previously loaded and collapsed) -->
+    <button id="reopen-left-sidebar-btn" onclick="expandLeftSidebar()" class="hidden absolute left-0 top-1/2 -translate-y-1/2 z-25 bg-rose-600 hover:bg-rose-500 text-white px-2 py-3 rounded-r-lg shadow-lg border border-l-0 border-rose-400 transition flex flex-col items-center space-y-1.5 group">
+      <svg class="w-4 h-4 transform group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>
+      </svg>
+      <span class="text-[10px] font-bold tracking-wider uppercase" style="writing-mode: vertical-rl; text-orientation: mixed;">Map Panel</span>
+    </button>
 
     <!-- Left 3/4 Interactive Mind Map Area -->
     <main id="mindmap-viewport" class="w-3/4 h-full overflow-auto relative bg-slate-50/70 select-none">
       <div id="mindmap-canvas" class="min-w-[1120px] min-h-full relative px-5 py-4 flex flex-col justify-between">
-        
+
         <!-- SVG Overlay for Dynamic Bezier Connectors -->
         <svg id="connections-svg" class="absolute inset-0 pointer-events-none z-0 w-full h-full"></svg>
 
@@ -282,6 +431,50 @@
 
   </div>
 
+  <!-- CENTER MODAL FOR EDIT MODE -->
+  <div id="edit-modal-backdrop" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" onclick="event.stopPropagation()">
+      <!-- Modal Header -->
+      <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-indigo-500/30 text-indigo-200 border border-indigo-400/40 rounded">Edit Mode</span>
+            <span id="edit-modal-node-id" class="text-xs font-mono text-slate-400"></span>
+          </div>
+          <h3 id="edit-modal-header-title" class="text-base font-bold mt-1">Edit Card Information</h3>
+        </div>
+        <button onclick="discardAndCloseModal()" class="text-slate-400 hover:text-white p-1 rounded transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Form Body -->
+      <div id="edit-modal-form-container" class="p-6 overflow-y-auto flex-1 space-y-4 text-xs">
+        <!-- Dynamically populated form fields for the clicked card -->
+      </div>
+
+      <!-- Modal Footer with Save & Close, Save, and Discard Changes -->
+      <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+        <span id="edit-save-feedback" class="text-xs font-medium text-emerald-600 opacity-0 transition-opacity">
+          ✓ Changes saved!
+        </span>
+        <div class="flex items-center space-x-2.5">
+          <button type="button" onclick="discardAndCloseModal()" class="px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-medium text-xs transition">
+            Discard Changes
+          </button>
+          <button type="button" onclick="saveModalChanges(false)" class="px-3.5 py-2 rounded-lg border border-indigo-600 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs transition">
+            Save
+          </button>
+          <button type="button" onclick="saveModalChanges(true)" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-sm transition">
+            Save & Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ============================================================================
     // 1. STRUCTURED DATASET (EXTRACTED FROM UPLOADED PRODOC & DONOR REPORTS)
@@ -365,7 +558,7 @@
           earmarkedFocus: [
             'Output 1: Technical Survey (300 ha surveyed in 2024 against 250 ha target) and Area Clearance (CHA clearance in Khammouane province, linked with LuxDev LAO/338 local development priorities).',
             'Output 2: Explosive Ordnance Risk Education (EORE) in 51+ target villages in Khammouane province.',
-            ' Equipment & Capacity: Replacement of aging field equipment, Survey123 training in Thakhek District, and Mid-Term Review coordination.'
+            'Equipment & Capacity: Replacement of aging field equipment, Survey123 training in Thakhek District, and Mid-Term Review coordination.'
           ],
           reportingSchedule: 'Annual Progress Report on Khammouane operations (due 1 February / 1 March)'
         }
@@ -559,7 +752,7 @@
           mandateAndRole: [
             'Established in 1996 with UNDP and UNICEF support as Lao PDR’s flagship national humanitarian clearance operator.',
             'Mandated to reduce UXO casualties and release high-priority agricultural and development land.',
-            'Under the UNDP NIM Project ( funded by NZ and Luxembourg), UXO Lao executes Output 1 (Survey & Clearance) and Output 2 (EORE) in Xiengkhouang, Khammouane, Champasak, and Xekong, and operates the renovated UXO Lao Visitor Center in Luang Prabang.'
+            'Under the UNDP NIM Project (funded by NZ and Luxembourg), UXO Lao executes Output 1 (Survey & Clearance) and Output 2 (EORE) in Xiengkhouang, Khammouane, Champasak, and Xekong, and operates the renovated UXO Lao Visitor Center in Luang Prabang.'
           ]
         }
       },
@@ -598,6 +791,62 @@
           officialStatement: 'Output 1: Prioritized survey and clearance enable more high-priority land to be released from UXO/mines.',
           proDocBudget: 'USD 17,654,004 (5-Year ProDoc Multi-Year Work Plan)',
           responsibleEntities: 'UXO Lao (4 provinces under NZ/Lux) & NRA / Humanitarian Army Teams Unit 58 / Center 523 (Bolikhamxay & Vientiane under KOICA)',
+          indicators: [
+            {
+              code: 'Indicator 1.1',
+              name: 'National prioritization plan fully integrated into National Standards (NMAS)',
+              baseline: 'No (2021)',
+              target: 'Yes (2026/2028)',
+              actual: 'Achieved (Annex B of NMAS 7.11 adopted Dec 2025)',
+              progress: 100,
+              status: 'Achieved'
+            },
+            {
+              code: 'Indicator 1.2',
+              name: 'Area of land (ha) surveyed (TS) by UNDP-funded teams (UXO Lao & Unit 58)',
+              baseline: '1,876 ha/yr (2021)',
+              target: '12,194 ha (2028) / 11,256 ha (2026)',
+              actual: '12,469 ha cumulative (2022–2025)',
+              progress: 100,
+              status: 'Exceeded'
+            },
+            {
+              code: 'Indicator 1.3',
+              name: 'Area of land (ha) cleared & released by UNDP-funded teams',
+              baseline: '571 ha/yr (2021)',
+              target: '4,545 ha (2028) / 3,426 ha (2026)',
+              actual: '3,065 ha cumulative (2022–2025; 90% of 2026 target)',
+              progress: 89,
+              status: 'On Track'
+            },
+            {
+              code: 'Indicator K4 / K5 (KOICA)',
+              name: 'Unit 58 Technical Survey (a) and Area Clearance (b) cumulative output',
+              baseline: 'a) 31 ha | b) 37 ha (2020)',
+              target: 'a) 260 ha | b) 290 ha (5-Yr Total)',
+              actual: 'a) 3,674.7 ha (1,413%) | b) 480.6 ha (166%)',
+              progress: 100,
+              status: 'Exceeded'
+            },
+            {
+              code: 'Indicator LUX 1 / LUX 2',
+              name: 'UXO Lao Khammouane Technical Survey (TS) & Area Clearance (AC)',
+              baseline: 'TS: 285 ha | AC: 267 ha (2022)',
+              target: 'TS: 500 ha | AC: 431 ha (2027)',
+              actual: 'TS: 616.5 ha (123%) | AC: 187.7 ha (On Track)',
+              progress: 85,
+              status: 'On Track'
+            },
+            {
+              code: 'Indicator 1.4',
+              name: 'Availability of a platform for discussing innovative ideas (Quarterly TWGs)',
+              baseline: 'No (2021)',
+              target: 'Yes (Active Quarterly TWGs)',
+              actual: 'Yes (4 Operational TWGs active annually)',
+              progress: 100,
+              status: 'Achieved'
+            }
+          ],
           keyActivities: [
             '1.1 Financial, technical, and oversight support for Non-Technical Survey (NTS), Technical Survey (TS), Area Clearance (CHA), and Roving Tasks by UXO Lao and Unit 58 (expanded from 7 to 22 teams).',
             '1.2 National and provincial prioritization of land release: Adopted Annex B of NMAS Chapter 7.11 in Dec 2025 establishing 5 objective scoring criteria (proximity to hazard, beneficiaries, village poverty, land use, and funded post-clearance development).',
@@ -622,6 +871,53 @@
           officialStatement: 'Output 2: Reduced risk-taking behaviour by at-risk group(s).',
           proDocBudget: 'USD 666,453 (5-Year ProDoc Multi-Year Work Plan)',
           responsibleEntities: 'NRA EORE Unit, Army Unit 58 (Center 523), and UXO Lao EORE Teams',
+          indicators: [
+            {
+              code: 'Indicator 2.1 / K6',
+              name: 'Availability of updated Explosive Ordnance Risk Education (EORE) National Standards',
+              baseline: 'No (2021)',
+              target: 'Yes (Aligned with IMAS)',
+              actual: 'Achieved (NMAS Chapter 12 approved Dec 2025)',
+              progress: 100,
+              status: 'Achieved'
+            },
+            {
+              code: 'Indicator IR3',
+              name: 'Development & publication of Knowledge, Attitudes and Practices (KAP) Survey',
+              baseline: 'No (2022)',
+              target: 'Yes (Published & disseminated)',
+              actual: 'Completed (KAP Study published Sept 2024)',
+              progress: 100,
+              status: 'Achieved'
+            },
+            {
+              code: 'Indicator NZ 11 / NZ 12',
+              name: 'UXO Lao EORE village coverage & beneficiaries reached (NZ-funded provinces)',
+              baseline: '50 villages / 25,000 people (2020)',
+              target: '342 villages / 170,000 people',
+              actual: '212 villages / 193,278 beneficiaries reached',
+              progress: 100,
+              status: 'Exceeded'
+            },
+            {
+              code: 'Indicator LUX 3',
+              name: 'Number of villages where EORE is conducted by UXO Lao in Khammouane',
+              baseline: '43 villages (2022)',
+              target: '60 villages',
+              actual: '128 village sessions completed (213%)',
+              progress: 100,
+              status: 'Exceeded'
+            },
+            {
+              code: 'Indicator 2.2 (Revised)',
+              name: 'Behaviour change & EORE reach (Unit 58 EORE + 12 Provincial Radio Stations)',
+              baseline: 'TBD (2022)',
+              target: '10% KAP shift / Broad coverage',
+              actual: '76% lower risk-taking among EORE attendees; 600,643 radio listeners (2025)',
+              progress: 95,
+              status: 'On Track'
+            }
+          ],
           keyActivities: [
             '2.1 Formulation and adoption of updated EORE National Standards (Chapter 12, approved Dec 2025) and EORE coordination workshops.',
             '2.2 Publication of the 2024 Knowledge, Attitudes, and Practices (KAP) Survey (establishing that EORE attendees are 76% less likely to engage in risky behaviour) and 2025 Accident Causality Analysis.',
@@ -646,6 +942,53 @@
           officialStatement: 'Output 3: Improved capacity of the NRA in strategic direction for the sector, supervision (oversight, monitoring, QA), data use and resource-mobilization including discourse on alternative financing modalities.',
           proDocBudget: 'USD 3,780,832 (5-Year ProDoc Multi-Year Work Plan)',
           responsibleEntities: 'NRA (OQM, IM, VA, M&E, Management Units) with UNDP Technical Advisory Support',
+          indicators: [
+            {
+              code: 'Indicator 3.1 / K8',
+              name: 'Frequency of QA/QC missions by the NRA to humanitarian UXO operators',
+              baseline: '20 missions/yr (2021)',
+              target: '120 (ProDoc) / 168 (2028 Plan)',
+              actual: '148 humanitarian QA/QC missions completed (88%)',
+              progress: 88,
+              status: 'On Track'
+            },
+            {
+              code: 'Indicator 3.2 / K9',
+              name: 'Percentage of Provincial Regulatory Authorities (PRAs) engaged in provincial planning',
+              baseline: '0% (0 of 13 PRAs in 2021)',
+              target: '45% (at least 6 of 13 PRAs)',
+              actual: '85% (11 of 13 PRAs actively engaged in 2024–2025)',
+              progress: 100,
+              status: 'Exceeded'
+            },
+            {
+              code: 'Indicator 3.3 & 3.4',
+              name: 'Alternative financing discussion paper distributed & NRA RM Strategy',
+              baseline: 'No (2021)',
+              target: 'Yes (Published & consulted)',
+              actual: 'Financing Study published (2024); RM Strategy in progress',
+              progress: 80,
+              status: 'On Track'
+            },
+            {
+              code: 'Indicator 3.5 / K11',
+              name: 'SPF III MEL Results Framework & IMSMA Core / VA Database rollout',
+              baseline: 'Not available / Limited (2021)',
+              target: 'Fully developed & operational',
+              actual: 'SPF III RF submitted to MoFA; 117 PRA/DRA staff trained on IMSMA Core',
+              progress: 90,
+              status: 'On Track'
+            },
+            {
+              code: 'Indicator C2 / C3 & IR4',
+              name: 'NRA Quality Management trainings (Canada) & Gender Action Plan (Ireland)',
+              baseline: '0 workshops / No GAD Plan (2022)',
+              target: '4+ QM trainings / GAD Plan adopted',
+              actual: '4 QM trainings (20 staff certified) & GAD Action Plan 2023–2026 active',
+              progress: 100,
+              status: 'Achieved'
+            }
+          ],
           keyActivities: [
             '3.1 Revision of National Mine Action Standards (NMAS, launched Dec 2025) aligned with IMAS, and training of NRA QM teams by UNDP International QM Specialist.',
             '3.2 Quality Assurance/Quality Control (QA/QC): 39 missions to humanitarian operators in 2024 and 34 missions in 2025 across all operating provinces.',
@@ -672,6 +1015,35 @@
           officialStatement: 'Output 4: A stronger legislative environment supporting CCM compliance and hastening land release and other UXO services for communities.',
           proDocBudget: 'USD 870,100 (5-Year ProDoc Multi-Year Work Plan)',
           responsibleEntities: 'NRA (International Cooperation & Treaty Support Unit, Public Relations Unit) & MoFA',
+          indicators: [
+            {
+              code: 'Indicator 4.1 / K12',
+              name: 'Number of laws and/or policy documents (SPF III, Prioritization Plan, PM Decree) developed, revised or advocated',
+              baseline: '0 (2021)',
+              target: '3 Policy/Legal Instruments',
+              actual: '3 Achieved (SPF III, PM Decree 166/GOV & NMAS Prioritization Annex)',
+              progress: 100,
+              status: 'Achieved'
+            },
+            {
+              code: 'Indicator 4.2 / K13',
+              name: 'Annual international treaty reporting obligations (CCM Article 7 & CCW Protocol V) fulfilled by Lao PDR',
+              baseline: 'Yes (2021)',
+              target: 'Yes (100% annual compliance)',
+              actual: 'Yes (2022–2025 reports submitted; CCM Art. 4 extended to 2030)',
+              progress: 100,
+              status: 'Achieved'
+            },
+            {
+              code: 'Indicator C1 (Canada)',
+              name: 'Availability of IMAS-compliant Landmine Clearance Standards in NMAS',
+              baseline: 'No (2021)',
+              target: 'Yes (Adopted in NMAS)',
+              actual: 'Achieved (Launched at Dec 2025 SWG meeting)',
+              progress: 100,
+              status: 'Achieved'
+            }
+          ],
           keyActivities: [
             '4.1 Development and dissemination of PM Decree No. 166/GOV (4 March 2025) on UXO management to provincial and district authorities (Vangvieng, Thakhek, Xiengkhouang).',
             '4.2 Fulfilling international treaty reporting (CCM Article 7 & CCW Protocol V reports) and securing Lao PDR’s CCM Article 4 extension to August 2030.',
@@ -697,6 +1069,35 @@
           officialStatement: 'PIP Output 1: Lao PDR’s CCM Presidency is successfully supported through the efficient and timely execution of priority preparatory, advocacy, and partnership activities.',
           proDocBudget: 'USD 106,196 (USD 98,330 Activity Budget + USD 7,866 GMS)',
           responsibleEntities: 'UNDP Lao PDR (Direct Implementation) & NRA / MoFA (Responsible Parties)',
+          indicators: [
+            {
+              code: 'PIP Indicator 1.1',
+              name: 'Number of priority 3RC-CCM preparatory, advocacy, and partnership activities successfully implemented',
+              baseline: '0 activities (May 2026)',
+              target: '5 core priority activities (expanded to 7)',
+              actual: '7 priority activities funded & executed under DIM PIP',
+              progress: 100,
+              status: 'Achieved'
+            },
+            {
+              code: 'PIP Indicator 1.2',
+              name: 'Official 3RC-CCM website (www.ccm3rc.gov.la) & delegate registration system operational',
+              baseline: 'Not in place (2025)',
+              target: '1 Official Portal Live',
+              actual: 'Live & operational (500+ delegates registered by Aug 2026)',
+              progress: 100,
+              status: 'Achieved'
+            },
+            {
+              code: 'PIP Indicator 1.3',
+              name: 'Regional universalization outreach & youth campaign sponsorship for 3RC-CCM',
+              baseline: '0 (2025)',
+              target: 'AP Regional Workshop + Youth Winner Sponsored',
+              actual: 'Completed (May 2026 AP Workshop & Aug/Sept 2026 Youth Showcase)',
+              progress: 100,
+              status: 'Achieved'
+            }
+          ],
           keyActivities: [
             'Activity 1: ASEAN High-Level Universalization Event (17th ARF ISM on Non-Proliferation & Disarmament, Manila, Philippines).',
             'Activity 2: Asia-Pacific Regional Universalization Workshop in Vientiane (USD 14,178, including field visit to Center 523 in Kasi, Vientiane Province; contributed to Timor-Leste’s declaration of intent to accede).',
@@ -942,10 +1343,395 @@
     };
 
     // ============================================================================
+    // 1B. GEOSPATIAL MAP & PIN-LINKED ACTIVITY DATASET FOR LEVEL 5 SIDEBAR
+    // ============================================================================
+    const LAO_PROVINCE_POLYGONS = {
+      PSL: { name: 'Phongsaly', path: 'M 78,12 L 106,18 L 108,52 L 88,65 L 70,48 Z' },
+      LNT: { name: 'Luang Namtha', path: 'M 42,42 L 70,48 L 68,72 L 40,68 Z' },
+      BKO: { name: 'Bokeo', path: 'M 26,68 L 48,68 L 50,88 L 28,86 Z' },
+      ODX: { name: 'Oudomxay', path: 'M 52,58 L 84,62 L 78,90 L 50,86 Z' },
+      LPB: { name: 'Luang Prabang', path: 'M 84,56 L 118,62 L 114,104 L 78,96 Z' },
+      HPH: { name: 'Houaphanh', path: 'M 118,60 L 156,68 L 150,104 L 114,98 Z' },
+      XAY: { name: 'Xayaboury', path: 'M 46,88 L 76,94 L 72,146 L 44,136 Z' },
+      XKH: { name: 'Xiengkhouang', path: 'M 102,98 L 146,102 L 138,136 L 98,128 Z' },
+      VTP: { name: 'Vientiane Prov.', path: 'M 74,116 L 100,120 L 98,154 L 72,150 Z' },
+      XSB: { name: 'Xaysomboun', path: 'M 98,126 L 126,132 L 122,154 L 96,150 Z' },
+      VTC: { name: 'Vientiane Cap.', path: 'M 74,152 L 96,152 L 94,166 L 72,164 Z' },
+      BKX: { name: 'Bolikhamxay', path: 'M 118,136 L 164,148 L 156,178 L 114,162 Z' },
+      KHM: { name: 'Khammouane', path: 'M 132,172 L 182,182 L 176,214 L 128,202 Z' },
+      SVK: { name: 'Savannakhet', path: 'M 134,204 L 194,214 L 188,252 L 132,244 Z' },
+      SLV: { name: 'Salavan', path: 'M 146,246 L 198,252 L 192,278 L 144,272 Z' },
+      CPS: { name: 'Champasak', path: 'M 136,272 L 176,276 L 174,318 L 132,312 Z' },
+      XEK: { name: 'Xekong', path: 'M 176,274 L 210,278 L 204,302 L 175,296 Z' },
+      ATP: { name: 'Attapeu', path: 'M 174,298 L 212,302 L 204,328 L 172,322 Z' }
+    };
+
+    const WORLD_COUNTRY_SHAPES = {
+      USA: { name: 'United States', path: 'M 32,48 L 88,46 L 92,72 L 36,74 Z' },
+      CHE: { name: 'Switzerland', path: 'M 146,44 L 160,44 L 160,54 L 146,54 Z' },
+      THA: { name: 'Thailand', path: 'M 222,78 L 234,78 L 234,94 L 222,94 Z' },
+      KHM_C: { name: 'Cambodia', path: 'M 234,86 L 245,86 L 245,96 L 234,96 Z' },
+      PHL: { name: 'Philippines', path: 'M 258,78 L 270,78 L 270,96 L 258,96 Z' }
+    };
+
+    const LOCATION_MAP_DATA = {
+      loc_vte_cap: {
+        mapType: 'laos',
+        provinces: [{ code: 'VTC', name: 'Vientiane Capital', color: '#0284c7' }],
+        pins: [
+          { id: 'pin_vtc_hq', label: 'Saysettha (NRA & UXO Lao HQ)', x: 85, y: 160 },
+          { id: 'pin_vtc_ntc', label: 'Naxaithong (National Training Centre & Roving)', x: 78, y: 155 },
+          { id: 'pin_vtc_ncc', label: 'Chanthabuly (NCC 3RC Venue & LYU)', x: 89, y: 158 }
+        ],
+        activities: [
+          {
+            pinId: 'pin_vtc_hq',
+            category: 'Governance, Radio EORE & Financial Oversight',
+            title: 'Saysettha District — NRA HQ, PBM/SWG & National Radio EORE',
+            achievements: 'Hosted biannual Project Board Meetings (PBM), Sector Working Groups (SWG), and Quarterly TWGs; National Radio EORE broadcasts reached 386,616 listeners in 2025.',
+            financials: 'NRA 2024 UNDP-managed expenditure: USD 2,903,046 (86.4% delivery); FY2024 HACT Audit completed with all 7 findings addressed; specialized accounting software deployed.'
+          },
+          {
+            pinId: 'pin_vtc_ntc',
+            category: 'Capacity Building, Procurement & Roving EOD',
+            title: 'Naxaithong District (Ylaitai) — National UXO Training Centre (NTC) & Unit 58',
+            achievements: 'Unit 58 executed emergency roving EOD spot tasks benefiting 2,447 residents (2024); UNDP QM Specialist delivered 4 Landmine & Quality Management training courses certifying 20 NRA QA/QC staff plus trauma medic refresher training (Oct 2025).',
+            financials: 'Canadian WTRP grant (CAD 750,000) funded procurement and delivery of 5 Kestrel ballistic aprons, 10 full-face visors, 5 demining toolkits, trauma medic kits, VHF radios, GPS units, and 1 dedicated 4x4 QA/QC field vehicle.'
+          },
+          {
+            pinId: 'pin_vtc_ncc',
+            category: '3RC-CCM Presidency & Public Outreach',
+            title: 'Chanthabuly District — National Convention Center (3RC-CCM) & Lao Youth Union',
+            achievements: 'Hosted International Mine Awareness Day (400+ youth participants at LYU, April 2026), Patuxay illumination, 16th CCM Anniversary, Asia-Pacific Regional CCM Workshop (May 2026), and the 3rd Review Conference of the CCM (14–18 Sept 2026, 500+ delegates).',
+            financials: 'Australia DIM PIP (USD 106,196) & Ireland (EUR 505,000) funded www.ccm3rc.gov.la portal (USD 35,000), AP Regional Workshop (USD 14,178), promotional materials (USD 21,825), private sector fundraising (USD 9,738), and National Design Consultant.'
+          }
+        ]
+      },
+
+      loc_xkh: {
+        mapType: 'laos',
+        provinces: [{ code: 'XKH', name: 'Xiengkhouang Province', color: '#0284c7' }],
+        pins: [
+          { id: 'pin_xkh_pek', label: 'Pek District (Phonsavan Ops & Decree 166)', x: 118, y: 114 },
+          { id: 'pin_xkh_kham', label: 'Kham District (EOD1 Training, Clearance & VA)', x: 132, y: 110 },
+          { id: 'pin_xkh_phoukoud', label: 'Phoukoud & Phaxay (High-Priority CHA & EORE)', x: 108, y: 122 }
+        ],
+        activities: [
+          {
+            pinId: 'pin_xkh_pek',
+            category: 'Survey, Clearance & Regulatory Dissemination',
+            title: 'Pek District (Phonsavan) — UXO Lao Field Ops & Decree No. 166/GOV',
+            achievements: 'UXO Lao surveyed 2,416 ha of TS (186% of 1,300 ha target) and 19 NTS villages across Xiengkhouang in 2024; NRA organized PM Decree No. 166/GOV dissemination workshop in Pek (15 May 2026) for 100 officials from 3 northern provinces.',
+            financials: 'New Zealand 2024 Xiengkhouang budget: USD 1,426,287 for Output 1 (USD 923,204 expended on CHA clearance, USD 103,510 on TS, USD 20,788 on NTS, USD 195,576 on provincial management).'
+          },
+          {
+            pinId: 'pin_xkh_kham',
+            category: 'Technical Training & Victim Assistance Follow-Up',
+            title: 'Kham District — EOD Level 1 Course & Survivor Livelihood Assessment',
+            achievements: '10 UXO Lao XKH staff (2 women) certified in EOD Level 1 (Mar–Apr 2024); NRA, KOICA & LYU conducted Victim Assistance vocational training impact assessment in Pek, Kham, and Phaxay (3–10 Aug 2026).',
+            financials: 'Supported under New Zealand capacity building allocation and Ireland/KOICA Victim Assistance monitoring funds (USD 15,930 VA coordination budget).'
+          },
+          {
+            pinId: 'pin_xkh_phoukoud',
+            category: 'Risk Education (EORE) & Quality Assurance',
+            title: 'Phoukoud, Mokmay & Phaxay — EORE Sessions & NRA QA/QC',
+            achievements: 'UXO Lao delivered EORE across 50+ target villages; provincial radio EORE reached 48,946 listeners; NRA OQM Unit conducted field QA/QC inspections (Mar, Sept, Dec 2024; Feb, Aug 2025; May 2026) confirming zero residual contamination.',
+            financials: 'New Zealand 2024 Xiengkhouang EORE budget: USD 48,149 (Expenditure: USD 38,967; 81% delivery rate); new vehicles and detectors procured via NZ/US support.'
+          }
+        ]
+      },
+
+      loc_khm: {
+        mapType: 'laos',
+        provinces: [{ code: 'KHM', name: 'Khammouane Province', color: '#0d9488' }],
+        pins: [
+          { id: 'pin_khm_thakhek', label: 'Thakhek (MTR, Survey123, ToT & Decree 166)', x: 142, y: 190 },
+          { id: 'pin_khm_boualapha', label: 'Boualapha & Mahaxay (TS & LuxDev Clearance)', x: 166, y: 196 },
+          { id: 'pin_khm_xaybouathong', label: 'Xaybouathong (Agricultural CHA Clearance & EORE)', x: 156, y: 204 }
+        ],
+        activities: [
+          {
+            pinId: 'pin_khm_thakhek',
+            category: 'Capacity Building, Mid-Term Review & Legislation',
+            title: 'Thakhek District — Survey123 IM Training, ToT & Decree 166 Workshop',
+            achievements: 'Hosted Luxembourg Mid-Term Review (11–13 Mar 2024), Survey123 IM training for 64 UXO Lao staff (May–Jun 2024), Survey & Clearance ToT for 15 staff (May 2024), and NRA PM Decree No. 166/GOV workshop (22 Oct 2025).',
+            financials: 'Luxembourg 2024 total Khammouane budget: USD 531,714; actual expenditure: USD 423,914 (80% overall delivery rate), including USD 225,588 for programme management/administration.'
+          },
+          {
+            pinId: 'pin_khm_boualapha',
+            category: 'Technical Survey & Development-Linked Clearance',
+            title: 'Boualapha, Mahaxay & Gnommalath — TS & LuxDev LAO/338 Sites',
+            achievements: 'Completed 300 ha of Technical Survey in 2024 (120% of 250 ha annual target) and 96.9 ha of clearance in 2025; prioritized 53 development sites with LuxDev LAO/338 (4% of clearance directly enabling schools, toilets, and village offices).',
+            financials: 'Luxembourg 2024 Khammouane TS budget: USD 65,503 (Expenditure: USD 43,580) & CHA Clearance budget: USD 199,301 (Expenditure: USD 117,492); 3 new Vegetation Cutting Teams (VCTs) deployed in 2025 to overcome dense vegetation.'
+          },
+          {
+            pinId: 'pin_khm_xaybouathong',
+            category: 'Agricultural Land Release & Community EORE',
+            title: 'Xaybouathong District — Thakokkhaen Clearance & 51-Village EORE',
+            achievements: 'Cleared 23+ ha of agricultural land in Xaybouathong (destroying 930+ UXO including 825 bombies, benefiting 1,800+ villagers); delivered EORE in 51–59 villages and reached 38,978 provincial radio listeners.',
+            financials: 'Luxembourg 2024 Khammouane EORE budget: USD 46,394 (Expenditure: USD 33,746; 73% delivery rate).'
+          }
+        ]
+      },
+
+      loc_cps: {
+        mapType: 'laos',
+        provinces: [{ code: 'CPS', name: 'Champasak Province', color: '#7c3aed' }],
+        pins: [
+          { id: 'pin_cps_pakse', label: 'Pakse & Bachiangchaleunsouk (Mgmt, Radio & QA)', x: 150, y: 288 },
+          { id: 'pin_cps_paksong', label: 'Paksong & Soukhuma (CHA Clearance, TS & Accident Inv.)', x: 164, y: 296 }
+        ],
+        activities: [
+          {
+            pinId: 'pin_cps_pakse',
+            category: 'Provincial Operations Management, Radio EORE & QA/QC',
+            title: 'Pakse & Bachiangchaleunsouk — UXO Lao Office & NRA Oversight',
+            achievements: 'EORE sessions conducted across target villages plus Champasak provincial radio broadcasts reaching 35,303 listeners in 2024; NRA OQM Unit completed QA/QC inspections (July & Dec 2024; Mar, Aug, Sept 2025; May 2026).',
+            financials: 'New Zealand 2024 Champasak Management budget: USD 11,022 (Expenditure: USD 12,445; 113% delivery) & EORE budget: USD 3,195 (Expenditure: USD 3,305; 103% delivery).'
+          },
+          {
+            pinId: 'pin_cps_paksong',
+            category: 'Survey, Clearance & Formal Accident Investigation',
+            title: 'Paksong, Pathoumphone & Soukhuma — CHA Release & Investigation SOPs',
+            achievements: 'UXO Lao completed 32 ha of TS, 2 villages of NTS, and 11+ ha of high-priority agricultural/development clearance in 2024; NRA & UNDP QM Specialist conducted formal external accident investigation in Paksong (Aug 2025) to strengthen national investigation SOPs.',
+            financials: 'New Zealand 2024 Champasak Clearance budget: USD 21,397 (Expenditure: USD 22,405; 105% delivery), TS budget: USD 5,792 (Expenditure: USD 5,785; 100%), NTS budget: USD 2,262 (Expenditure: USD 2,710; 120%).'
+          }
+        ]
+      },
+
+      loc_xek: {
+        mapType: 'laos',
+        provinces: [{ code: 'XEK', name: 'Xekong Province', color: '#db2777' }],
+        pins: [
+          { id: 'pin_xek_lamam', label: 'Lamam & Thateng (CHA Clearance, TS & Radio EORE)', x: 184, y: 286 },
+          { id: 'pin_xek_kaleum', label: 'Kaleum & Dakcheung (Remote NTS/TS & VA Follow-up)', x: 196, y: 282 }
+        ],
+        activities: [
+          {
+            pinId: 'pin_xek_lamam',
+            category: 'High-Priority Clearance & Risk Education',
+            title: 'Lamam & Thateng Districts — UXO Lao Clearance & Radio EORE',
+            achievements: 'UXO Lao surveyed 75 ha of TS (121% of 62 ha target) and cleared 22+ ha of CHA in 2024; EORE mobile teams visited target villages and provincial radio broadcasts reached 26,853 listeners.',
+            financials: 'New Zealand 2024 Xekong Clearance budget: USD 39,365 (Expenditure: USD 40,955; 104% delivery), TS budget: USD 6,066 (Expenditure: USD 4,729), Management: USD 12,315 (Expenditure: USD 12,784; 104%).'
+          },
+          {
+            pinId: 'pin_xek_kaleum',
+            category: 'Non-Technical Survey, QA/QC & Victim Assistance',
+            title: 'Kaleum & Dakcheung Districts — Remote Survey & Survivor Referrals',
+            achievements: 'UXO Lao completed NTS in 4 remote villages (200% of annual target); NRA conducted QA/QC missions (Mar, Sept, Dec 2024; Feb, Jul, Oct 2025) and Victim Assistance field follow-up & USMF medical referrals in Lamam and Kaleum (17–25 May 2026).',
+            financials: 'New Zealand 2024 Xekong NTS budget: USD 2,193 (Expenditure: USD 1,532) & EORE budget: USD 3,600 (Expenditure: USD 2,532); VA mission funded by Ireland.'
+          }
+        ]
+      },
+
+      loc_bkx: {
+        mapType: 'laos',
+        provinces: [{ code: 'BKX', name: 'Bolikhamxay Province', color: '#ea580c' }],
+        pins: [
+          { id: 'pin_bkx_paksan', label: 'Paksan (VA Strategy Consultation, Radio Workshop & Rehab)', x: 128, y: 154 },
+          { id: 'pin_bkx_khamkeuth', label: 'Khamkeuth & Viengthong (Unit 58 TS, Clearance & EORE)', x: 148, y: 162 }
+        ],
+        activities: [
+          {
+            pinId: 'pin_bkx_paksan',
+            category: 'Facility Rehabilitation, VA Strategy & Radio EORE',
+            title: 'Paksan (Pakxane) District — Unit 58 Base Rehab & National Workshops',
+            achievements: 'Hosted National Consultation on Draft Victim Assistance Strategy 2027–2030 (17–20 Aug 2026), Annual UXO Radio EORE Workshop (5–7 Nov 2025), and Community Loudspeaker Workshop (Sept 2024); Joint Supervisory Committee inspected Unit 58 accommodation rehabilitation (29–30 Nov 2025).',
+            financials: 'KOICA approved mid-2025 budget reallocation under Activity 1.1 to fund rehabilitation of Unit 58 accommodation facility in Bolikhamxay; Physical Asset Verification completed June 2024.'
+          },
+          {
+            pinId: 'pin_bkx_khamkeuth',
+            category: 'Humanitarian Army Teams (Unit 58 / Center 523) Core Operations',
+            title: 'Khamkeuth, Viengthong & Pakkading — Survey, Clearance & EORE',
+            achievements: 'In 2024, Unit 58 surveyed 1,073 ha (TS), conducted NTS in 62 villages, cleared 124 ha of high-priority land, and delivered EORE in 101 villages across Bolikhamxay; NRA OQM conducted QA/QC missions in May & Nov 2024 and May, July & Dec 2025.',
+            financials: 'Funded under KOICA Activity 1.1 (USD 975,970 allocated to Unit 58 in 2024; USD 972,285 expended in 2025) plus over USD 1M in KOICA-procured vehicles, detectors, and IT equipment.'
+          }
+        ]
+      },
+
+      loc_vte_prov: {
+        mapType: 'laos',
+        provinces: [{ code: 'VTP', name: 'Vientiane Province', color: '#2563eb' }],
+        pins: [
+          { id: 'pin_vtp_kasi', label: 'Kasi District (Unit 58 Clearance, New Base & 3RC Visit)', x: 84, y: 124 },
+          { id: 'pin_vtp_vangvieng', label: 'Vangvieng (IMSMA Training Hub, NRA Board & Decree 166)', x: 88, y: 138 }
+        ],
+        activities: [
+          {
+            pinId: 'pin_vtp_kasi',
+            category: 'Unit 58 Clearance, Base Construction & International Field Visit',
+            title: 'Kasi & Hinheup Districts — Unit 58 Demining & Accommodation Facility',
+            achievements: 'Unit 58 surveyed 264 ha (TS), 52 villages (NTS), cleared 42 ha, and delivered EORE in 78 villages (2024); hosted Korean Embassy/KOICA monitoring visit (Jan 2025), HRIA mission (Dec 2025), and Asia-Pacific Regional CCM Workshop delegate field visit (May 2026).',
+            financials: 'KOICA approved mid-2025 unspent balance reallocation under Activity 1.1 to construct a new permanent accommodation facility for Unit 58 in Kasi District.'
+          },
+          {
+            pinId: 'pin_vtp_vangvieng',
+            category: 'Decentralized IMSMA Core Training Hub & Sector Governance',
+            title: 'Vangvieng District — PRA/DRA IMSMA Workshops, NRA Board & Decree 166',
+            achievements: 'Served as central training venue for IMSMA Core & ArcGIS workshops for 117 officials from 6 PRAs & 35 DRAs (Sept 2024, July 2025, Aug 2026), VA operators (Sept 2026), and Center 523 (Sept 2026); hosted 2nd NRA Board Meeting (19 Dec 2025), PM Decree 166 workshop (29 July 2025), and VA follow-up (May 2026).',
+            financials: 'Funded by Ireland Output 3 Information Management allocation (USD 93,470 expended in 2025–2026; USD 147,085 budgeted for 2026–2027) and KOICA Activity 3.7.'
+          }
+        ]
+      },
+
+      loc_lpb: {
+        mapType: 'laos',
+        provinces: [{ code: 'LPB', name: 'Luang Prabang Province', color: '#059669' }],
+        pins: [
+          { id: 'pin_lpb_city', label: 'Luang Prabang City (Renovated UXO Lao Visitor Center)', x: 94, y: 82 },
+          { id: 'pin_lpb_pakou', label: 'Pak-Ou & Phoukhoun (3RC High-Level Field Visit & VA)', x: 102, y: 74 }
+        ],
+        activities: [
+          {
+            pinId: 'pin_lpb_city',
+            category: 'Public Advocacy & Visitor Center Renovation',
+            title: 'Luang Prabang City — Grand Reopening of UXO Lao Visitor Center',
+            achievements: 'Officially reopened on 19 August 2024 under MoFA leadership following comprehensive renovation; welcomed 22,451 domestic and international visitors (10,388 women) in 2024 and hosted International Mine Awareness Day exhibition (April 2024); radio EORE reached 35,007 listeners.',
+            financials: 'Renovation and exhibition upgrades co-funded by KOICA (Output 4 Activity 4.2) and the Government of Ireland through UNDP.'
+          },
+          {
+            pinId: 'pin_lpb_pakou',
+            category: '3RC-CCM Field Visits, QA/QC & Victim Assistance',
+            title: 'Pak-Ou (Nam Phik & Hat Khor) & Phoukhoun — 3RC-CCM Field Visits & VA',
+            achievements: 'Minister of Foreign Affairs led High-Level 3RC Preparatory Field Mission to Nam Phik and Hat Khor clearance sites (15–17 Feb 2026), followed by the official 3RC-CCM Media & Donor Field Visit (13 Sept 2026); NRA conducted QA/QC missions (Jun/Nov 2024, Oct 2025) and VA survivor follow-up in Pak-Ou and Phoukhoun (4–9 May 2026).',
+            financials: 'Feb 2026 preparatory visit funded via UNDP-NRA AWP (USD 2,915); Sept 2026 3RC field visit and May 2026 VA mission supported by Ireland.'
+          }
+        ]
+      },
+
+      loc_svk_slv_atp: {
+        mapType: 'laos',
+        provinces: [
+          { code: 'SVK', name: 'Savannakhet', color: '#0284c7' },
+          { code: 'SLV', name: 'Salavan', color: '#f59e0b' },
+          { code: 'ATP', name: 'Attapeu', color: '#10b981' }
+        ],
+        pins: [
+          { id: 'pin_svk', label: 'Savannakhet (Kaysone, Phin, Sepon — QA/QC, Board & VA)', x: 162, y: 228 },
+          { id: 'pin_slv', label: 'Salavan (Ta-Oy, Toumlan — QA/QC, VA & Radio EORE)', x: 168, y: 260 },
+          { id: 'pin_atp', label: 'Attapeu (Samakkhixay, Phouvong — QA/QC & VA Follow-up)', x: 190, y: 312 }
+        ],
+        activities: [
+          {
+            pinId: 'pin_svk',
+            category: 'Savannakhet Province — Regulatory Oversight, QA/QC & South-South Exchange',
+            title: 'Savannakhet (Kaysone, Phin, Sepon, Nong) — NRA Board, QA/QC & VA',
+            achievements: 'Hosted 1st 2024 NRA Board Meeting; NRA OQM conducted QA/QC inspections of UXO Lao and HALO Trust (Mar, Sept, Dec 2024; May, Oct, Nov, Dec 2025); VA monitoring missions (2024 & 2025); hosted Solomon Islands study visit (Feb 2026); radio EORE reached 71,534 listeners.',
+            financials: 'Supported via KOICA, Canada, and Ireland Output 3 QA/QC, Victim Assistance, and Radio EORE budgets; Savannakhet PRA integrated SDG 18 into provincial development plan.'
+          },
+          {
+            pinId: 'pin_slv',
+            category: 'Salavan Province — Victim Assistance Follow-Up, QA/QC & EORE',
+            title: 'Salavan (Salavan, Ta-Oy, Toumlan) — USMF Referrals & Field Monitoring',
+            achievements: 'NRA VA Unit conducted survivor follow-up and USMF policy dissemination in Ta-Oy District (May 2026) and provincial monitoring (2024); NRA QA/QC missions to UXO Lao and NPA (Feb, May, Sept, Oct 2024; Jun, Nov, Dec 2025); radio EORE reached 56,770 listeners.',
+            financials: 'Funded under Ireland and KOICA Output 2 (EORE radio/monitoring) and Output 3 (QA/QC & Victim Assistance field follow-up).'
+          },
+          {
+            pinId: 'pin_atp',
+            category: 'Attapeu Province — Victim Assistance, QA/QC & EORE Monitoring',
+            title: 'Attapeu (Samakkhixay, Phouvong, Sanxay) — Survivor Care & QA/QC',
+            achievements: 'NRA VA Unit conducted household survivor visits and hospital referrals in Phouvong District (17–25 May 2026); EORE monitoring visit (Feb 2024) and radio broadcasts reaching 48,629 listeners; NRA QA/QC missions to UXO Lao and NPA (Jan, Jun, Oct, Dec 2024; Mar, Jul, Sept, Nov 2025).',
+            financials: 'Supported through Ireland and KOICA Output 2 & Output 3 allocations.'
+          }
+        ]
+      },
+
+      loc_north_cluster: {
+        mapType: 'laos',
+        provinces: [
+          { code: 'HPH', name: 'Houaphanh', color: '#8b5cf6' },
+          { code: 'PSL', name: 'Phongsaly', color: '#ec4899' },
+          { code: 'XSB', name: 'Xaysomboun', color: '#14b8a6' }
+        ],
+        pins: [
+          { id: 'pin_hph', label: 'Houaphanh (Xamneua, Viengxay — QA/QC, EORE & Decree 166)', x: 136, y: 82 },
+          { id: 'pin_psl', label: 'Phongsaly (Khoua, Mai — HI/UXO Lao QA/QC & IMSMA)', x: 92, y: 38 },
+          { id: 'pin_xsb', label: 'Xaysomboun (Longcheng, Thathom — Unit 58 Clearance & IM)', x: 110, y: 140 }
+        ],
+        activities: [
+          {
+            pinId: 'pin_hph',
+            category: 'Houaphanh Province — QA/QC Inspections, EORE & Decree 166',
+            title: 'Houaphanh (Xamneua, Viengxay, Houameuang) — NRA Oversight & Radio',
+            achievements: 'NRA OQM conducted QA/QC missions to UXO Lao and HI (May, Nov 2024; Mar, Jul 2025; May 2026) and joint EORE monitoring (Dec 2025); provincial radio EORE reached 57,625 listeners; PRA participated in May 2026 Decree 166 workshop and integrated SDG 18.',
+            financials: 'Funded via KOICA, Canada (QM Specialist field supervision in Houaphanh, Nov 2024), and Ireland Output 3 & 4 budgets.'
+          },
+          {
+            pinId: 'pin_psl',
+            category: 'Phongsaly Province — Remote QA/QC & IMSMA Core Capacity Building',
+            title: 'Phongsaly (Khoua & Mai Districts) — QA/QC & Decentralized IM',
+            achievements: 'NRA OQM conducted QA/QC inspections of Humanity & Inclusion (HI) operations in Khoua and Mai (Jan & Jun 2024); Phongsaly PRA & DRA officials trained on IMSMA Core Step 3 (2026); provincial radio EORE reached 3,047 listeners.',
+            financials: 'Supported by Ireland IMSMA Core capacity-building budget (USD 31,258) and KOICA QA/QC operational funds.'
+          },
+          {
+            pinId: 'pin_xsb',
+            category: 'Xaysomboun Province — Unit 58 Clearance/Roving & IMSMA Training',
+            title: 'Xaysomboun (Longcheng, Longxan, Thathom) — Unit 58 Ops & Decree 166',
+            achievements: 'Army Unit 58 conducted area clearance in Longcheng and roving EOD tasks across Longcheng, Longxan, and Thathom; Xaysomboun PRA/DRAs completed IMSMA Core training (Aug 2026), Decree 166 workshop (May 2026), and EORE monitoring (Dec 2025).',
+            financials: 'Unit 58 field operations funded by KOICA Activity 1.1; PRA/DRA capacity building funded by Ireland.'
+          }
+        ]
+      },
+
+      loc_intl: {
+        mapType: 'world',
+        provinces: [
+          { code: 'CHE', name: 'Switzerland (Geneva)', color: '#0284c7' },
+          { code: 'PHL', name: 'Philippines (Manila)', color: '#f59e0b' },
+          { code: 'KHM_C', name: 'Cambodia (Siem Reap)', color: '#10b981' },
+          { code: 'USA', name: 'USA (New York City)', color: '#8b5cf6' },
+          { code: 'THA', name: 'Thailand (Bangkok)', color: '#ec4899' }
+        ],
+        pins: [
+          { id: 'pin_intl_gva', label: 'Geneva, Switzerland (CCM 12MSP/13MSP & 3RC PrepComs)', x: 153, y: 49 },
+          { id: 'pin_intl_mnl', label: 'Manila, Philippines (17th ARF ISM Disarmament)', x: 264, y: 86 },
+          { id: 'pin_intl_rep', label: 'Siem Reap, Cambodia (APMBC 5RC & CMAA Study Visit)', x: 240, y: 91 },
+          { id: 'pin_intl_nyc', label: 'New York City, USA (UN HLPF Side Event & Exhibition)', x: 78, y: 58 },
+          { id: 'pin_intl_bkk', label: 'Bangkok, Thailand (ArcGIS Pro/Online & VA Data Exchange)', x: 228, y: 85 }
+        ],
+        activities: [
+          {
+            pinId: 'pin_intl_gva',
+            category: 'Geneva, Switzerland — CCM Meetings of States Parties & 3RC PrepComs',
+            title: 'Geneva — CCM 12MSP, 13MSP, NDM-UN27 & 2026 3RC Preparatory Meetings',
+            achievements: 'Secured approval of Lao PDR’s CCM Article 4 extension to August 2030 at 12MSP (Sept 2024); assumed 3RC-CCM Presidency at 13MSP (Sept 2025); chaired 1st & 2nd 3RC PrepComs and regional consultations in Geneva (Mar, Jun, Jul 2026).',
+            financials: 'Funded by Ireland Output 4 (USD 20,700 for 1st PrepCom, USD 19,700 for 2nd Regional Consultation, USD 20,700 for 2nd PrepCom) and KOICA Activity 4.3 (USD 16,553 in 2024; USD 28,166 in 2025).'
+          },
+          {
+            pinId: 'pin_intl_mnl',
+            category: 'Manila, Philippines — ASEAN Regional Forum (Australia DIM PIP)',
+            title: 'Manila — 17th ARF Inter-Sessional Meeting on Non-Proliferation & Disarmament',
+            achievements: 'Lao PDR Presidency delegation promoted CCM universalization and 3RC participation among ASEAN and Asia-Pacific states (13–14 April 2026).',
+            financials: 'Funded under Australia DIM PIP (Project 01006631) Activity 1 (Original allocation: USD 3,700 / AUD 5,184).'
+          },
+          {
+            pinId: 'pin_intl_rep',
+            category: 'Siem Reap & Phnom Penh, Cambodia — APMBC 5RC & CMAA QM Exchange',
+            title: 'Cambodia — 5th Review Conference of APMBC & CMAA Quality Management Visit',
+            achievements: 'Deputy Minister of Foreign Affairs led Lao delegation to APMBC 5RC in Siem Reap (Nov 2024), announcing intent to submit a voluntary transparency report; NRA QM teams completed technical study exchange with CMAA.',
+            financials: 'APMBC 5RC delegation logistics and briefings funded by Canada (Grant CONV-2022-0002); CMAA study visit supported with UNDP QM Specialist input.'
+          },
+          {
+            pinId: 'pin_intl_nyc',
+            category: 'New York City, USA — UN High-Level Political Forum (HLPF)',
+            title: 'UN Headquarters NYC — SDG 18 Side Event & UXO Exhibition (July 2024)',
+            achievements: 'Lao PDR (led by Deputy Prime Minister & Minister of Foreign Affairs) and Azerbaijan co-hosted "UXO/Mine Action to Attain the SDGs and Leave No One Behind" side event and fabric embroidery exhibition (8–17 July 2024).',
+            financials: 'Funded by KOICA Output 4 Activity 4.2 public awareness and international advocacy budget.'
+          },
+          {
+            pinId: 'pin_intl_bkk',
+            category: 'Bangkok, Thailand — GIS Technical Training & VA Data Exchange',
+            title: 'Bangkok — ArcGIS Pro / Online Workflows & Casualty Data Interoperability',
+            achievements: 'NRA Information Management Unit completed certified training on ArcGIS Pro and ArcGIS Online Essential Workflows (9–15 June 2024); 5 NRA staff scheduled for Thailand UXO casualty data & disability registry exchange (2026–2027).',
+            financials: 'June 2024 GIS training funded by KOICA Activity 3.7; 2026–2027 Thailand VA/IM exchange budgeted at USD 10,262 under Ireland AWP.'
+          }
+        ]
+      }
+    };
+
+    // ============================================================================
     // 2. EXPLICIT LOGICAL PATHWAYS (GRANULAR CHAINS ACROSS ALL 5 LEVELS)
     // ============================================================================
-    // Defining exact logical chains [Donor, Project, IP, Output, Location] ensures
-    // 100% accurate upstream/downstream highlighting without false cross-contamination.
     const LOGICAL_CHAINS = [
       // --- KOICA Chains (Funds NRA NIM Project -> NRA -> Outputs 1, 2, 3, 4) ---
       ['donor_koica', 'proj_nra', 'ip_nra', 'out_1', 'loc_bkx'],
@@ -1002,7 +1788,7 @@
       ['donor_ire', 'proj_nra', 'ip_nra', 'out_3', 'loc_vte_prov'],
       ['donor_ire', 'proj_nra', 'ip_nra', 'out_3', 'loc_bkx'],
       ['donor_ire', 'proj_nra', 'ip_nra', 'out_3', 'loc_xkh'],
- ['donor_ire', 'proj_nra', 'ip_nra', 'out_3', 'loc_khm'],
+      ['donor_ire', 'proj_nra', 'ip_nra', 'out_3', 'loc_khm'],
       ['donor_ire', 'proj_nra', 'ip_nra', 'out_3', 'loc_cps'],
       ['donor_ire', 'proj_nra', 'ip_nra', 'out_3', 'loc_xek'],
       ['donor_ire', 'proj_nra', 'ip_nra', 'out_3', 'loc_lpb'],
@@ -1020,11 +1806,11 @@
       // --- Canada Chains (Funds NRA NIM Project -> Outputs 3 & 4) ---
       ['donor_can', 'proj_nra', 'ip_nra', 'out_3', 'loc_vte_cap'],
       ['donor_can', 'proj_nra', 'ip_nra', 'out_3', 'loc_vte_prov'],
- ['donor_can', 'proj_nra', 'ip_nra', 'out_3', 'loc_xkh'],
+      ['donor_can', 'proj_nra', 'ip_nra', 'out_3', 'loc_xkh'],
       ['donor_can', 'proj_nra', 'ip_nra', 'out_3', 'loc_cps'],
       ['donor_can', 'proj_nra', 'ip_nra', 'out_3', 'loc_svk_slv_atp'],
       ['donor_can', 'proj_nra', 'ip_nra', 'out_3', 'loc_north_cluster'],
- ['donor_can', 'proj_nra', 'ip_nra', 'out_3', 'loc_intl'],
+      ['donor_can', 'proj_nra', 'ip_nra', 'out_3', 'loc_intl'],
 
       ['donor_can', 'proj_nra', 'ip_nra', 'out_4', 'loc_vte_cap'],
       ['donor_can', 'proj_nra', 'ip_nra', 'out_4', 'loc_intl'],
@@ -1078,8 +1864,18 @@
     };
 
     let selectedNodeId = null;
+    let isEditMode = false;
+    let editingNodeId = null;
+    let activeLocationNodeId = null;
+    let selectedPinId = null;
 
     function renderAllCards() {
+      // Clear containers first in case of re-render after edit
+      Object.values(COLUMN_CONTAINERS).forEach(cid => {
+        const c = document.getElementById(cid);
+        if (c) c.innerHTML = '';
+      });
+
       Object.values(NODES).forEach(node => {
         const container = document.getElementById(COLUMN_CONTAINERS[node.col]);
         const card = document.createElement('div');
@@ -1088,7 +1884,7 @@
         card.className = 'node-card';
         card.onclick = (e) => {
           e.stopPropagation();
-          selectNode(node.id);
+          handleCardClick(node.id);
         };
 
         card.innerHTML = `
@@ -1104,6 +1900,13 @@
         `;
         container.appendChild(card);
       });
+    }
+
+    function handleCardClick(nodeId) {
+      selectNode(nodeId);
+      if (isEditMode) {
+        openEditModal(nodeId);
+      }
     }
 
     // ============================================================================
@@ -1141,7 +1944,6 @@
         svg.appendChild(path);
       });
 
-      // Re-apply highlight classes if a node is currently selected
       if (selectedNodeId) {
         applyHighlightStates(selectedNodeId);
       }
@@ -1154,10 +1956,17 @@
       selectedNodeId = nodeId;
       applyHighlightStates(nodeId);
       renderSidebarDetails(nodeId);
+
+      const node = NODES[nodeId];
+      if (node && node.col === 5) {
+        activeLocationNodeId = nodeId;
+        selectedPinId = null;
+        renderLeftLocationSidebar(nodeId);
+        expandLeftSidebar();
+      }
     }
 
     function applyHighlightStates(nodeId) {
-      // Find all chains containing the selected nodeId
       const matchingChains = LOGICAL_CHAINS.filter(chain => chain.includes(nodeId));
 
       const relatedNodes = new Set();
@@ -1175,7 +1984,6 @@
         }
       });
 
-      // Update Card States
       Object.keys(NODES).forEach(id => {
         const el = document.getElementById(`node-${id}`);
         if (!el) return;
@@ -1190,7 +1998,6 @@
         }
       });
 
-      // Update SVG Edge States
       EDGES.forEach(edge => {
         const pathEl = document.getElementById(`edge-${edge.id}`);
         if (!pathEl) return;
@@ -1198,7 +2005,7 @@
 
         if (directEdges.has(edge.id)) {
           pathEl.classList.add('edge-direct');
-          pathEl.parentNode.appendChild(pathEl); // Bring to front
+          pathEl.parentNode.appendChild(pathEl);
         } else if (activeEdges.has(edge.id)) {
           pathEl.classList.add('edge-active');
           pathEl.parentNode.appendChild(pathEl);
@@ -1210,6 +2017,8 @@
 
     function clearSelection() {
       selectedNodeId = null;
+      activeLocationNodeId = null;
+      selectedPinId = null;
       Object.keys(NODES).forEach(id => {
         const el = document.getElementById(`node-${id}`);
         if (el) el.classList.remove('state-selected', 'state-related', 'state-dimmed');
@@ -1218,10 +2027,213 @@
         const pathEl = document.getElementById(`edge-${edge.id}`);
         if (pathEl) pathEl.classList.remove('edge-active', 'edge-direct', 'edge-dimmed');
       });
+      collapseLeftSidebar(true);
       renderDefaultSidebar();
     }
 
-    // Helper to render clickable chips for connected nodes in the sidebar
+    // ============================================================================
+    // 6. LEFT 1/4 GEOSPATIAL MAP & PIN-HIGHLIGHTED ACTIVITY SIDEBAR (LEVEL 5)
+    // ============================================================================
+    function expandLeftSidebar() {
+      const sidebar = document.getElementById('left-location-sidebar');
+      const reopenBtn = document.getElementById('reopen-left-sidebar-btn');
+      sidebar.classList.remove('sidebar-collapsed');
+      reopenBtn.classList.add('hidden');
+    }
+
+    function collapseLeftSidebar(hideReopenTab = false) {
+      const sidebar = document.getElementById('left-location-sidebar');
+      const reopenBtn = document.getElementById('reopen-left-sidebar-btn');
+      sidebar.classList.add('sidebar-collapsed');
+      if (!hideReopenTab && activeLocationNodeId) {
+        reopenBtn.classList.remove('hidden');
+      } else {
+        reopenBtn.classList.add('hidden');
+      }
+    }
+
+    function renderLeftLocationSidebar(nodeId) {
+      const node = NODES[nodeId];
+      const mapData = LOCATION_MAP_DATA[nodeId];
+      if (!node || !mapData) return;
+
+      document.getElementById('left-map-badge').textContent = node.badge;
+      document.getElementById('left-map-title').textContent = node.title;
+
+      const mapCanvas = document.getElementById('left-map-canvas');
+      const highlightedCodes = {};
+      mapData.provinces.forEach(p => { highlightedCodes[p.code] = p.color; });
+
+      // Build Province/Country Color Chips Legend inside Map Overlay
+      const colorLegendHtml = `
+        <div class="absolute top-2 left-2.5 flex flex-wrap gap-1.5 z-10 max-w-[85%]">
+          ${mapData.provinces.map(p => `
+            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold text-white shadow-sm flex items-center space-x-1" style="background-color: ${p.color};">
+              <span class="w-1.5 h-1.5 rounded-full bg-white"></span>
+              <span>${p.name}</span>
+            </span>
+          `).join('')}
+        </div>
+      `;
+
+      if (mapData.mapType === 'laos') {
+        let pathsSvg = '';
+        Object.entries(LAO_PROVINCE_POLYGONS).forEach(([code, prov]) => {
+          const fill = highlightedCodes[code] || '#1e293b';
+          const stroke = highlightedCodes[code] ? '#ffffff' : '#334155';
+          const strokeW = highlightedCodes[code] ? '1.5' : '0.8';
+          const opacity = highlightedCodes[code] ? '0.95' : '0.65';
+          pathsSvg += `<path d="${prov.path}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}" opacity="${opacity}">
+            <title>${prov.name}</title>
+          </path>`;
+        });
+
+        let pinsSvg = '';
+        mapData.pins.forEach((pin, idx) => {
+          const isSelected = selectedPinId === pin.id;
+          pinsSvg += `
+            <g class="map-pin-group ${isSelected ? 'pin-selected' : ''}" id="mappin-${pin.id}" onclick="handleMapPinClick('${pin.id}', event)">
+              <circle cx="${pin.x}" cy="${pin.y}" r="8" fill="#f59e0b" opacity="0.35" class="pin-pulse"></circle>
+              <circle cx="${pin.x}" cy="${pin.y}" r="4.5" fill="${isSelected ? '#f59e0b' : '#38bdf8'}" stroke="#ffffff" stroke-width="1.5" class="map-pin-dot"></circle>
+              <text x="${pin.x + 7}" y="${pin.y + 3}" fill="#f8fafc" font-size="7.5" font-weight="600" style="text-shadow: 0 1px 3px #000;">${idx + 1}</text>
+              <title>${pin.label} (Click to highlight activity details)</title>
+            </g>
+          `;
+        });
+
+        mapCanvas.innerHTML = `
+          ${colorLegendHtml}
+          <svg viewBox="10 0 220 340" class="w-full h-full max-h-56">
+            ${pathsSvg}
+            ${pinsSvg}
+          </svg>
+          <div class="absolute bottom-1.5 right-2.5 text-[9px] font-mono text-slate-400">Lao PDR Provincial Map</div>
+        `;
+      } else {
+        // World Map for International Venues
+        let worldPaths = `
+          <!-- Simplified Continents Backdrop -->
+          <path d="M 15,30 L 95,25 L 105,85 L 75,135 L 55,130 L 45,85 L 15,65 Z" fill="#1e293b" stroke="#334155" stroke-width="0.8" />
+          <path d="M 125,25 L 285,20 L 295,105 L 245,115 L 205,95 L 175,115 L 130,105 Z" fill="#1e293b" stroke="#334155" stroke-width="0.8" />
+          <path d="M 240,118 L 280,118 L 282,145 L 242,145 Z" fill="#1e293b" stroke="#334155" stroke-width="0.8" />
+        `;
+        Object.entries(WORLD_COUNTRY_SHAPES).forEach(([code, cnt]) => {
+          const fill = highlightedCodes[code] || '#334155';
+          worldPaths += `<path d="${cnt.path}" fill="${fill}" stroke="#ffffff" stroke-width="1.2" opacity="0.92">
+            <title>${cnt.name}</title>
+          </path>`;
+        });
+
+        let pinsSvg = '';
+        mapData.pins.forEach((pin, idx) => {
+          const isSelected = selectedPinId === pin.id;
+          pinsSvg += `
+            <g class="map-pin-group ${isSelected ? 'pin-selected' : ''}" id="mappin-${pin.id}" onclick="handleMapPinClick('${pin.id}', event)">
+              <circle cx="${pin.x}" cy="${pin.y}" r="9" fill="#f59e0b" opacity="0.35" class="pin-pulse"></circle>
+              <circle cx="${pin.x}" cy="${pin.y}" r="5" fill="${isSelected ? '#f59e0b' : '#38bdf8'}" stroke="#ffffff" stroke-width="1.5" class="map-pin-dot"></circle>
+              <text x="${pin.x + 7}" y="${pin.y + 3}" fill="#ffffff" font-size="8" font-weight="700" style="text-shadow: 0 1px 3px #000;">${idx + 1}</text>
+              <title>${pin.label}</title>
+            </g>
+          `;
+        });
+
+        mapCanvas.innerHTML = `
+          ${colorLegendHtml}
+          <svg viewBox="0 10 310 145" class="w-full h-full max-h-56">
+            ${worldPaths}
+            ${pinsSvg}
+          </svg>
+          <div class="absolute bottom-1.5 right-2.5 text-[9px] font-mono text-slate-400">Global Treaty & Training Venues</div>
+        `;
+      }
+
+      renderLeftLocationActivities(nodeId);
+    }
+
+    function renderLeftLocationActivities(nodeId) {
+      const node = NODES[nodeId];
+      const mapData = LOCATION_MAP_DATA[nodeId];
+      const container = document.getElementById('left-location-body');
+      if (!node || !mapData || !container) return;
+
+      // Interactive Pin Pills bar
+      const pinButtonsHtml = `
+        <div class="bg-white p-2.5 rounded-lg border border-slate-200 shadow-2xs">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Interactive Map Pins (Click to Highlight Activity)</div>
+          <div class="flex flex-wrap gap-1.5">
+            ${mapData.pins.map((pin, idx) => {
+              const active = selectedPinId === pin.id;
+              return `
+                <button onclick="handleMapPinClick('${pin.id}', event)" class="px-2 py-1 rounded text-[10px] font-semibold transition flex items-center space-x-1 border ${active ? 'bg-amber-500 text-white border-amber-600 shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'}">
+                  <span class="w-3.5 h-3.5 rounded-full ${active ? 'bg-white text-amber-700' : 'bg-sky-600 text-white'} flex items-center justify-center text-[9px] font-bold">${idx + 1}</span>
+                  <span class="truncate max-w-[175px]">${pin.label.split('(')[0].trim()}</span>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+
+      // Detailed Activity Cards linked to Pins
+      const activitiesHtml = mapData.activities.map((act, idx) => {
+        const isHighlighted = selectedPinId === act.pinId;
+        return `
+          <div id="loc-act-${act.pinId}" onclick="handleMapPinClick('${act.pinId}', event)" class="loc-activity-item bg-white p-3 rounded-lg border border-slate-200 shadow-2xs cursor-pointer space-y-1.5 ${isHighlighted ? 'activity-highlighted' : ''}">
+            <div class="flex items-center justify-between">
+              <span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${isHighlighted ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600'}">
+                Pin #${idx + 1} • ${act.category}
+              </span>
+              ${isHighlighted ? '<span class="text-[10px] font-bold text-amber-800 animate-pulse">● Active Pin Highlight</span>' : ''}
+            </div>
+            <h4 class="act-title-text text-xs font-bold text-slate-800 leading-snug">${act.title}</h4>
+            <div class="space-y-1 pt-0.5">
+              <div class="text-[10px] font-bold uppercase text-slate-400">Reported Achievements & Field Results</div>
+              <p class="act-desc-text text-[11px] text-slate-600 leading-relaxed">${act.achievements}</p>
+            </div>
+            <div class="space-y-1 pt-1 border-t border-slate-100">
+              <div class="text-[10px] font-bold uppercase text-emerald-700">Financial & Procurement Progress</div>
+              <p class="act-desc-text text-[11px] text-slate-600 leading-relaxed">${act.financials}</p>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      container.innerHTML = pinButtonsHtml + `<div class="space-y-2.5">${activitiesHtml}</div>`;
+    }
+
+    function handleMapPinClick(pinId, event) {
+      if (event) event.stopPropagation();
+      if (!activeLocationNodeId) return;
+
+      selectedPinId = (selectedPinId === pinId) ? null : pinId;
+      const resetBtn = document.getElementById('show-all-pins-btn');
+      if (selectedPinId) {
+        resetBtn.classList.remove('hidden');
+      } else {
+        resetBtn.classList.add('hidden');
+      }
+
+      renderLeftLocationSidebar(activeLocationNodeId);
+
+      if (selectedPinId) {
+        const targetEl = document.getElementById(`loc-act-${selectedPinId}`);
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }
+    }
+
+    function clearPinFilter() {
+      selectedPinId = null;
+      document.getElementById('show-all-pins-btn').classList.add('hidden');
+      if (activeLocationNodeId) {
+        renderLeftLocationSidebar(activeLocationNodeId);
+      }
+    }
+
+    // ============================================================================
+    // 7. RIGHT SIDEBAR RENDERING (INCLUDING LEVEL 4 INDICATOR/TARGET/BASELINE UI)
+    // ============================================================================
     function buildConnectedChips(nodeId) {
       const matchingChains = LOGICAL_CHAINS.filter(chain => chain.includes(nodeId));
       const connectedByCol = { 1: new Set(), 2: new Set(), 3: new Set(), 4: new Set(), 5: new Set() };
@@ -1265,6 +2277,69 @@
 
       html += '</div>';
       return html;
+    }
+
+    function buildOutputIndicatorsHtml(indicators) {
+      if (!indicators || indicators.length === 0) return '';
+
+      const statusBadgeColors = {
+        'Achieved': 'bg-emerald-100 text-emerald-800 border-emerald-300',
+        'Exceeded': 'bg-sky-100 text-sky-800 border-sky-300',
+        'On Track': 'bg-amber-100 text-amber-800 border-amber-300'
+      };
+
+      const barColors = {
+        'Achieved': 'bg-emerald-500',
+        'Exceeded': 'bg-sky-500',
+        'On Track': 'bg-amber-500'
+      };
+
+      return `
+        <div class="space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-slate-800 uppercase text-[11px] tracking-wider">Results Framework: Indicators, Baselines & Targets</h4>
+            <span class="text-[10px] font-semibold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">${indicators.length} Indicators</span>
+          </div>
+          <div class="space-y-2.5">
+            ${indicators.map(ind => {
+              const bClass = statusBadgeColors[ind.status] || 'bg-slate-100 text-slate-700 border-slate-300';
+              const pColor = barColors[ind.status] || 'bg-purple-500';
+              const pct = Math.min(100, Math.max(10, Number(ind.progress) || 85));
+              return `
+                <div class="bg-slate-50 rounded-lg p-3 border border-slate-200 shadow-2xs space-y-2">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-[10px] font-mono font-bold text-purple-800 bg-purple-100/80 px-1.5 py-0.5 rounded">${ind.code}</span>
+                    <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${bClass}">${ind.status || 'On Track'}</span>
+                  </div>
+                  <div class="text-[11px] font-semibold text-slate-800 leading-snug">${ind.name}</div>
+
+                  <!-- Baseline vs Target Comparison Grid -->
+                  <div class="grid grid-cols-2 gap-2 pt-1">
+                    <div class="bg-white p-2 rounded border border-slate-200/80">
+                      <div class="text-[9px] font-bold uppercase text-slate-400">Baseline</div>
+                      <div class="text-[11px] font-medium text-slate-700 mt-0.5">${ind.baseline}</div>
+                    </div>
+                    <div class="bg-white p-2 rounded border border-purple-200/80">
+                      <div class="text-[9px] font-bold uppercase text-purple-600">Target</div>
+                      <div class="text-[11px] font-bold text-purple-900 mt-0.5">${ind.target}</div>
+                    </div>
+                  </div>
+
+                  <!-- Reported Actual & Visual Progress Bar -->
+                  <div class="pt-1">
+                    <div class="flex items-center justify-between text-[10px] mb-1">
+                      <span class="font-semibold text-slate-500">Reported Progress: <strong class="text-slate-800">${ind.actual || 'On Track'}</strong></span>
+                    </div>
+                    <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div class="h-full ${pColor} rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
     }
 
     function renderSidebarDetails(nodeId) {
@@ -1375,6 +2450,8 @@
             <div class="font-bold text-purple-900">${d.proDocBudget}</div>
           </div>
 
+          ${buildOutputIndicatorsHtml(d.indicators)}
+
           <div>
             <h4 class="font-bold text-slate-800 uppercase text-[11px] tracking-wider mb-1.5">Key Planned & Executed Activities</h4>
             <ul class="list-disc pl-4 space-y-1.5 text-slate-600">
@@ -1430,12 +2507,13 @@
           <ul class="list-disc pl-4 text-[11px] text-slate-600 space-y-1">
             <li><strong class="text-sky-700">Blue Highlight:</strong> Currently selected card and its direct immediate links.</li>
             <li><strong class="text-amber-700">Amber Highlight:</strong> All logically connected cards and pathways across other levels.</li>
+            <li><strong class="text-rose-700">Level 5 Geospatial Panel:</strong> Clicking any Level 5 Location card opens an interactive left-hand map panel with clickable pins.</li>
           </ul>
         </div>
 
         <div class="space-y-2.5">
           <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Architecture Summary</h3>
-          
+
           <div class="p-3 bg-slate-50 rounded border border-slate-200">
             <div class="font-bold text-slate-800">1. Two NIM Projects (2022–2028)</div>
             <p class="text-[11px] text-slate-600 mt-1">
@@ -1458,12 +2536,213 @@
     }
 
     // ============================================================================
-    // 6. INITIALIZATION & EVENT LISTENERS
+    // 8. DISPLAY VIEW / EDIT MODE TOGGLE & MODAL EDITOR LOGIC
+    // ============================================================================
+    function toggleEditMode() {
+      isEditMode = !isEditMode;
+      const btn = document.getElementById('mode-toggle-btn');
+      const text = document.getElementById('mode-toggle-text');
+      const iconDisplay = document.getElementById('mode-icon-display');
+      const iconEdit = document.getElementById('mode-icon-edit');
+
+      if (isEditMode) {
+        document.body.classList.add('edit-mode-active');
+        btn.className = 'px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 border border-amber-300 font-bold rounded text-xs transition shadow-sm flex items-center space-x-1.5';
+        text.textContent = 'Mode: Edit Mode';
+        iconDisplay.classList.add('hidden');
+        iconEdit.classList.remove('hidden');
+        iconEdit.classList.remove('text-amber-300');
+        iconEdit.classList.add('text-slate-950');
+      } else {
+        document.body.classList.remove('edit-mode-active');
+        btn.className = 'px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-100 border border-slate-500 font-medium rounded text-xs transition shadow-sm flex items-center space-x-1.5';
+        text.textContent = 'Mode: Display View';
+        iconDisplay.classList.remove('hidden');
+        iconEdit.classList.add('hidden');
+      }
+    }
+
+    function escapeHtmlAttr(str) {
+      return String(str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function openEditModal(nodeId) {
+      const node = NODES[nodeId];
+      if (!node) return;
+      editingNodeId = nodeId;
+
+      document.getElementById('edit-modal-node-id').textContent = `Level ${node.col} • ${node.type} (${node.id})`;
+      document.getElementById('edit-modal-header-title').textContent = `Edit: ${node.title}`;
+
+      const formContainer = document.getElementById('edit-modal-form-container');
+      let fieldsHtml = `
+        <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-indigo-700">Card Header Attributes</div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-700 mb-1">Badge Label</label>
+              <input type="text" id="edit-field-badge" value="${escapeHtmlAttr(node.badge)}" class="w-full px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-700 mb-1">Card Title</label>
+              <input type="text" id="edit-field-title" value="${escapeHtmlAttr(node.title)}" class="w-full px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-700 mb-1">Subtitle</label>
+              <input type="text" id="edit-field-subtitle" value="${escapeHtmlAttr(node.subtitle)}" class="w-full px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-700 mb-1">Footer Meta Text</label>
+              <input type="text" id="edit-field-meta" value="${escapeHtmlAttr(node.meta)}" class="w-full px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-indigo-700">Detailed Information Fields</div>
+      `;
+
+      Object.entries(node.details).forEach(([key, val]) => {
+        const readableLabel = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+        if (key === 'indicators' && Array.isArray(val)) {
+          const serializedInds = val.map(ind => `${ind.code} | ${ind.name} | ${ind.baseline} | ${ind.target} | ${ind.actual || ''} | ${ind.status || 'On Track'} | ${ind.progress || 90}`).join('\n');
+          fieldsHtml += `
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-700 mb-1">${readableLabel} <span class="text-[10px] font-normal text-slate-400">(One per line: Code | Indicator | Baseline | Target | Actual | Status | Progress%)</span></label>
+              <textarea id="edit-detail-${key}" rows="5" class="w-full px-2.5 py-1.5 border border-slate-300 rounded font-mono text-[11px] focus:outline-none focus:ring-2 focus:ring-indigo-500">${escapeHtmlAttr(serializedInds)}</textarea>
+            </div>
+          `;
+        } else if (Array.isArray(val)) {
+          fieldsHtml += `
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-700 mb-1">${readableLabel} <span class="text-[10px] font-normal text-slate-400">(One item per line)</span></label>
+              <textarea id="edit-detail-${key}" rows="4" class="w-full px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500">${escapeHtmlAttr(val.join('\n'))}</textarea>
+            </div>
+          `;
+        } else {
+          fieldsHtml += `
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-700 mb-1">${readableLabel}</label>
+              <input type="text" id="edit-detail-${key}" value="${escapeHtmlAttr(val)}" class="w-full px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+          `;
+        }
+      });
+
+      fieldsHtml += '</div>';
+
+      // If Level 5 Location Card, also allow editing the Left Sidebar Pin Activities
+      if (node.col === 5 && LOCATION_MAP_DATA[nodeId]) {
+        const locActs = LOCATION_MAP_DATA[nodeId].activities;
+        fieldsHtml += `
+          <div class="bg-rose-50/50 p-4 rounded-lg border border-rose-200 space-y-3">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-rose-700">Left Map Sidebar — Pin-Linked Activity Details</div>
+            ${locActs.map((act, idx) => `
+              <div class="p-3 bg-white rounded border border-rose-200/80 space-y-2">
+                <div class="text-[10px] font-bold text-rose-800">Pin #${idx + 1} (${act.pinId})</div>
+                <div>
+                  <label class="block text-[10px] font-semibold text-slate-600 mb-0.5">Activity Title</label>
+                  <input type="text" id="edit-loc-act-title-${idx}" value="${escapeHtmlAttr(act.title)}" class="w-full px-2 py-1 border border-slate-300 rounded" />
+                </div>
+                <div>
+                  <label class="block text-[10px] font-semibold text-slate-600 mb-0.5">Achievements & Field Results</label>
+                  <textarea id="edit-loc-act-ach-${idx}" rows="2" class="w-full px-2 py-1 border border-slate-300 rounded">${escapeHtmlAttr(act.achievements)}</textarea>
+                </div>
+                <div>
+                  <label class="block text-[10px] font-semibold text-slate-600 mb-0.5">Financial & Procurement Progress</label>
+                  <textarea id="edit-loc-act-fin-${idx}" rows="2" class="w-full px-2 py-1 border border-slate-300 rounded">${escapeHtmlAttr(act.financials)}</textarea>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      formContainer.innerHTML = fieldsHtml;
+
+      const modal = document.getElementById('edit-modal-backdrop');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function saveModalChanges(closeAfterSave) {
+      if (!editingNodeId || !NODES[editingNodeId]) return;
+      const node = NODES[editingNodeId];
+
+      node.badge = document.getElementById('edit-field-badge').value.trim() || node.badge;
+      node.title = document.getElementById('edit-field-title').value.trim() || node.title;
+      node.subtitle = document.getElementById('edit-field-subtitle').value.trim() || node.subtitle;
+      node.meta = document.getElementById('edit-field-meta').value.trim() || node.meta;
+
+      Object.keys(node.details).forEach(key => {
+        const inputEl = document.getElementById(`edit-detail-${key}`);
+        if (!inputEl) return;
+        const currVal = node.details[key];
+
+        if (key === 'indicators' && Array.isArray(currVal)) {
+          const lines = inputEl.value.split('\n').map(l => l.trim()).filter(Boolean);
+          node.details.indicators = lines.map(line => {
+            const parts = line.split('|').map(p => p.trim());
+            return {
+              code: parts[0] || 'Indicator',
+              name: parts[1] || '',
+              baseline: parts[2] || 'N/A',
+              target: parts[3] || 'N/A',
+              actual: parts[4] || 'On Track',
+              status: parts[5] || 'On Track',
+              progress: parseFloat(parts[6]) || 90
+            };
+          });
+        } else if (Array.isArray(currVal)) {
+          node.details[key] = inputEl.value.split('\n').map(l => l.trim()).filter(Boolean);
+        } else {
+          node.details[key] = inputEl.value.trim();
+        }
+      });
+
+      if (node.col === 5 && LOCATION_MAP_DATA[editingNodeId]) {
+        LOCATION_MAP_DATA[editingNodeId].activities.forEach((act, idx) => {
+          const tEl = document.getElementById(`edit-loc-act-title-${idx}`);
+          const aEl = document.getElementById(`edit-loc-act-ach-${idx}`);
+          const fEl = document.getElementById(`edit-loc-act-fin-${idx}`);
+          if (tEl) act.title = tEl.value.trim();
+          if (aEl) act.achievements = aEl.value.trim();
+          if (fEl) act.financials = fEl.value.trim();
+        });
+      }
+
+      // Re-render cards, connectors, and active sidebars
+      renderAllCards();
+      requestAnimationFrame(() => {
+        drawConnectors();
+      });
+      renderSidebarDetails(editingNodeId);
+      if (node.col === 5 && activeLocationNodeId === editingNodeId) {
+        renderLeftLocationSidebar(editingNodeId);
+      }
+
+      if (closeAfterSave) {
+        discardAndCloseModal();
+      } else {
+        const feedback = document.getElementById('edit-save-feedback');
+        feedback.classList.remove('opacity-0');
+        setTimeout(() => feedback.classList.add('opacity-0'), 1800);
+      }
+    }
+
+    function discardAndCloseModal() {
+      editingNodeId = null;
+      const modal = document.getElementById('edit-modal-backdrop');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    // ============================================================================
+    // 9. INITIALIZATION & EVENT LISTENERS
     // ============================================================================
     window.addEventListener('DOMContentLoaded', () => {
       renderAllCards();
       renderDefaultSidebar();
-      // Allow DOM layout to settle before calculating SVG coordinates
       requestAnimationFrame(() => {
         setTimeout(drawConnectors, 60);
       });
